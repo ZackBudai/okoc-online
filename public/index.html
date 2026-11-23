@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GAME TITLE</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;700;800;900&display=swap">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <!-- HOME -->
+  <div id="screen-home" class="screen">
+    <div class="home-box">
+      <div class="court" aria-hidden="true">
+        <div class="figure noble"><i class="eye"></i><i class="eye"></i></div>
+        <div class="figure noble"><i class="eye"></i><i class="eye"></i></div>
+        <div class="figure king awake"><i class="eye"></i><i class="eye"></i></div>
+        <div class="figure noble"><i class="eye"></i><i class="eye"></i></div>
+        <div class="figure noble"><i class="eye"></i><i class="eye"></i></div>
+      </div>
+      <h1 class="title" data-theme="gameTitle">GAME TITLE</h1>
+      <p class="tagline" data-theme="tagline"></p>
+      <label class="field">Your name <input id="name" maxlength="20" autocomplete="nickname"></label>
+      <button id="btn-create" class="primary">Create a room</button>
+      <div class="divider">or join one</div>
+      <div class="row">
+        <input id="join-code" placeholder="CODE" maxlength="4" autocomplete="off">
+        <button id="btn-join">Join</button>
+      </div>
+      <div id="home-error" class="error"></div>
+    </div>
+  </div>
+
+  <!-- LOBBY -->
+  <div id="screen-lobby" class="screen hidden">
+    <div class="lobby">
+      <h1 class="title small" data-theme="gameTitle">GAME TITLE</h1>
+      <div class="room-code">Room <strong id="lobby-code"></strong>
+        <button id="btn-copy" class="ghost">Copy invite link</button>
+      </div>
+      <div class="lobby-cols">
+        <div class="panel">
+          <h3>Players</h3>
+          <ul id="lobby-players" class="plain"></ul>
+          <button id="btn-start" class="primary">Start game</button>
+          <div id="lobby-note" class="muted"></div>
+        </div>
+        <div class="panel">
+          <h3>Settings</h3>
+          <form id="settings-form" class="settings"></form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- GAME -->
+  <div id="screen-game" class="screen hidden">
+    <header id="topbar">
+      <span class="title tiny" data-theme="gameTitle">GAME TITLE</span>
+      <span class="chip" id="tb-round"></span>
+      <span class="chip" id="tb-dir"></span>
+      <span class="chip" id="tb-phase"></span>
+      <span class="chip" id="tb-deck"></span>
+      <div id="timer"><div id="timer-fill"></div><span id="timer-text"></span></div>
+      <button id="btn-end-game" class="ghost danger hidden">End game</button>
+    </header>
+    <main id="board">
+      <section id="center">
+        <div id="status-band">
+          <div>
+            <div id="status-line"></div>
+            <div id="waiting" class="muted"></div>
+          </div>
+          <div id="turn-controls" class="hidden">
+            <button id="btn-end-turn" class="primary">End turn</button>
+            <span id="plays-left" class="muted"></span>
+          </div>
+        </div>
+        <div id="negotiation" class="panel hidden">
+          <h3>Negotiation</h3>
+          <p class="muted">Make deals over voice or chat — nothing is binding. Trade gold, exchange cards one-for-one
+            (select a card in your hand below), or discard a card as part of a deal.</p>
+          <div class="row">
+            <select id="gift-to"></select>
+            <input id="gift-amount" type="number" min="0" step="100" value="100">
+            <button id="btn-gift">Give gold</button>
+            <span id="gift-cap" class="muted"></span>
+          </div>
+          <button id="btn-ready" class="primary">Ready</button>
+          <span id="ready-count" class="muted"></span>
+          <button id="btn-skip">Vote to skip</button>
+          <span id="skip-count" class="muted"></span>
+        </div>
+        <div id="gameover" class="panel hidden"></div>
+        <div id="effects"></div>
+        <!-- The table: players split down both sides, cards they keep "in front of them" sit on its edge. -->
+        <div id="table-wrap">
+          <div class="table-surface" aria-hidden="true"></div>
+          <div id="side-left" class="side left"></div>
+          <div id="table-center">
+            <div id="dice" class="faded"><div class="die" id="die-face"></div><div id="dice-caption"></div></div>
+            <div id="table-dir" aria-hidden="true"></div>
+          </div>
+          <div id="side-right" class="side right"></div>
+        </div>
+      </section>
+    </main>
+    <section id="hand-area">
+      <div class="hand-head">
+        <h3>Your hand</h3>
+        <div id="card-actions">
+          <button id="btn-play" class="primary" disabled>Play</button>
+          <span id="facedown-group" class="hidden">
+            <select id="facedown-target"></select>
+            <button id="btn-facedown" disabled title="Counts as a play. Only a real Knight protects — anything else is a bluff.">Place face down</button>
+          </span>
+          <span id="trade-group" class="hidden">
+            <select id="trade-to"></select>
+            <button id="btn-trade" disabled>Offer exchange</button>
+            <button id="btn-deal-discard" disabled title="Only as part of a deal. You draw a replacement.">Discard (deal)</button>
+          </span>
+          <span id="card-reason" class="muted"></span>
+        </div>
+      </div>
+      <div id="hand"></div>
+    </section>
+  </div>
+
+  <!-- SIDEBAR (lobby + game) -->
+  <aside id="sidebar" class="hidden">
+    <div class="tabs"><button data-tab="log" class="active">Log</button><button data-tab="chat">Chat <span id="chat-badge"></span></button></div>
+    <div id="log" class="feed"></div>
+    <div id="chat" class="feed hidden"></div>
+    <form id="chat-form" class="hidden"><input id="chat-input" maxlength="300" placeholder="Say something…" autocomplete="off"><button>Send</button></form>
+  </aside>
+
+  <div id="modal" class="hidden"><div id="modal-box"></div></div>
+  <div id="toasts"></div>
+  <footer id="credits" data-theme="credits"></footer>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>

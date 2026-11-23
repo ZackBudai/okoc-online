@@ -1,0 +1,170 @@
+ONE KING ONE CROWN - CARD LIST
+Extracted from Print_At_Home_OKOC.pdf
+Format: CARD NAME (xCount) - Effect
+Cards with two effects separated by a dotted line on the card are shown as "Option 1 / OR / Option 2".
+
+==================================================
+NOBLE DECK (74 cards)
+==================================================
+
+ACTORS (x3)
+Everyone must thank the king for their glorious rule however horrible and cruel it might have been.
+  OR
+Everyone must laugh at the player of your choice.
+
+ALLIES (x3)
+Pick a noble. They choose if you gain 100 gold or lose 200 to the bank. Other players can convince them to take the second option.
+
+BAD BLOOD (x3)
+Pick two nobles. You gain 200 gold from the bank at the beginning of every round until one of them gives the other 200 gold. They can make this payment out of turn.
+
+BEGGAR'S BLESSING (x3)
+All nobles with 300 gold or lower gain 200.
+
+BETRAYAL (x4)
+Take all gold from another noble. Requires vocal support from another noble after it's played or it has no effect. Not playable in the first round.
+
+BETRAY THE KING (x2)
+The King rolls: 1-3, you switch places and gold. 4-6, they remain king and gain 200 gold from the bank. After it's played, you must gain vocal support from TWO players or it has no effect. Not playable in the first round.
+
+COUNCIL MEETING (x3)
+If all players vote yes, you take 100 gold from the king. If one votes no, you lose 100 to the bank.
+  OR
+Draw two cards, but you must praise the king.
+
+DIVINE RIGHT (x1)
+If you roll 5+: You gain 1200 gold. Play only if you have 300 gold or less. Can only be played or discarded in the last 2 rounds.
+
+GRUDGE (x2)
+Pick a player. They have to agree to you taking 200 gold from the noble of your choice. If they disagree, you lose 100 gold to the bank.
+
+HELPING HAND (x3)
+Draw 2 extra cards and play an extra card. So, if this is your first card, you get to play 3 more now.
+
+HINDSIGHT (x2)
+Back a specific noble to play the "Betrayal" card before the end of the next round. If correct, gain 300 gold from the bank. If not, lose 100. Keep this in front of you until then.
+
+ICARUS (x2)
+If you roll a 4-6, all nobles must pay you 100 gold. If you fail, you must pay each noble 100 gold. You can only play this card if you can afford it.
+
+INDEBTED (x2)
+If you roll a 3-6, a noble has to pay you 100 gold at the beginning of every round until another player frees them by paying you 200. This payment can be made at any time. Any debts are gone if you become king.
+
+ISOLATION (x3)
+No one can look at your cards until the end of your next turn.
+  OR
+No one can take gold from you until the end of your next turn. This does not apply to the Betrayal card.
+
+KING MAKER (x2)
+Play this card out of turn when you or someone plays "Betray the King". Choose a side: support (+1 to the King's roll) or oppose (-1 to the King's roll). If your side fails, pay 300 gold to the bank.
+
+KNIGHT (x2)
+Place this card FACE DOWN in front of you to protect you from one betrayal. Placing a knight down counts as a card played.
+
+LOYALTY (x3)
+Pick a player. They choose whether to pay you 100 gold or force the king pay you.
+  OR
+Force a player to pay the king 100 gold and pledge their loyalty to them.
+
+MEAT FOR MEAT (x4)
+You and another noble roll. If you roll higher, you collect 200 from them.
+
+PEOPLE'S CHAMPION (x1)
+Nominate a noble as King. If all other nobles agree, they roll against the current King to take the throne. Can only be played or discarded in the last round.
+
+ROYAL BOMB (x1)
+You and everyone else (excluding the king) lose 800 gold. This card cannot be stolen and can only be discarded or given away by you during the "Negotiation Phase". If you become king, the card is discarded. Use this card to pressure and negotiate.
+
+SCOUT (x2)
+Back a noble to become king by the end of the next round. If you're correct, earn 300 gold from the bank. If you're wrong, lose 100. Keep this card in front of you until then.
+
+SHADOW DEAL (x5)
+Give another player 100 or 200 gold (you pick) from the bank. You can give it to the king.
+
+SUB ROSA (x5)
+Look at any player's hand or one face down knight card (pick one). If you roll a 4 or higher you can take a card from their hand.
+
+SUBSIDIES (x3)
+All nobles get gold for as much gold as they have:
+  No gold - Receive 300
+  100-300 - Receive 200
+  400-500 - Receive 100
+
+SUPPRESS REBELLION (x2)
+If the king pathetically rolls a 1-3, the bank must give you 200 gold and every other noble 100 gold.
+
+TITHE (x2)
+Pick a player. They must pick a noble to give you 100 gold.
+
+UNPROTECTED (x2)
+If you roll a 5-6, all face down knights in play are removed except yours.
+
+WRATH (x4)
+You lose 100 gold, but a noble of your choice loses 300.
+  OR
+Make a player lose 100 to the bank.
+
+==================================================
+KING DECK (25 cards)
+==================================================
+
+ANCHOR (x2)
+Player loses 200 gold to the bank or lets the player of your choice lose 100 to you.
+
+BEND THE KNEE (x2)
+Force a player to thank you for everything you've done for them. If they refuse, they pay the bank 300 gold. If they cannot afford to, they must thank you.
+
+BLACK PLAGUE (x1)
+All nobles pair up and each roll a die. If either noble in a pair rolls a 1, both nobles in that pair lose 200 gold. If there is an odd number of nobles, roll with a lone one, but only they can lose gold.
+
+DEBT COLLECTOR (x2)
+Pick a player. This player picks someone to lose 200 gold to the bank.
+
+EYE FOR AN EYE (x1)
+You lose 100 gold to the bank but a player of your choice loses 300.
+
+HELPING HAND (King version) (x1)
+First draw two, then play an extra card. So, if this is your first card, you play 4 more now (or 3, if you're only playing with 3 nobles).
+
+KING'S EYE (x2)
+Protect a player of your choice until your next turn. If a noble looks at their cards or takes gold from them, they must pay the bank 100 gold.
+
+KNIGHT (King version) (x1)
+Place this card face down in front of a player to protect them from one Betrayal card. They can't look at it.
+
+LOYAL DOG (x3)
+Give a player 100 to 300 gold (you pick) from the bank but they must say "Thank you my king, I pledge my loyalty to you my king."
+
+MAD KING (x1)
+Force everyone to roll dice. Whoever rolls a 1 loses 300 to the bank. You must roll as well. If you roll a 1 you lose 500.
+
+ROYAL PARROT (x2)
+As the royal parrot, a player of your choice has to pay the bank 100 gold then repeat a sentence you give them in a high-pitched voice. 300 to the bank if they refuse.
+
+SCAPEGOAT (x1)
+Each noble must vote on another noble to lose 300 gold to the bank, starting from the noble to your left. A tie is decided by a dice roll.
+
+SHIFTING TIDES (x1)
+Pick two nobles. They can only take gold from each other until your next turn. This does not include Betrayal cards.
+
+SNAKES (x1)
+Pick a player and announce it. All nobles must vote by raising their hand. If even one noble raises their hand, the chosen player loses 300 gold to the bank.
+
+SUB ROSA (King version) (x2)
+Look at another player's hand. If you roll a 4 or higher, you can also discard a card.
+
+WE RIDE TOGETHER (x2)
+Pick two players. Whoever rolls lower between them has to lose 200 gold to the bank. Players can agree to lose 100 gold each instead only AFTER they both roll. Roll again if they tie.
+
+==================================================
+TOTALS
+==================================================
+Noble deck: 74 cards (28 unique)
+King deck:  25 cards (16 unique)
+All cards:  99
+
+Other printed components (no card effects):
+- Round tracker board (Rounds One-Four, alternating turn direction) - p3
+- Hourglass board - p4
+- Eye tokens (24 per sheet) - p3-4
+- Gold tracker cards (0-2000 in steps of 100) x9 - p5

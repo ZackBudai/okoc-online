@@ -21,13 +21,6 @@ Create a room, then share the invite link or the 4-letter code. The host can cha
 settings in the lobby and starts the game. The default is 4–8 players, and the minimum can be
 lowered in the settings for testing.
 
-## Playing long distance
-
-- **Quick, temporary:** run `npm start`, then `npx cloudflared tunnel --url http://localhost:3000`
-  (or ngrok) and send your friends the `https://...` URL it prints.
-- **Always on:** deploy the folder to any Node host (Render, Railway, Fly.io). Start command
-  `npm start`. The server reads the host's `PORT` automatically.
-
 Game state is kept in memory. Restarting the server ends any game in progress.
 
 ## Rules as implemented (defaults)

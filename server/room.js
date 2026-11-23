@@ -113,6 +113,7 @@ class Room {
     this.ready = new Set();
     this.skipVotes = new Set(); // players voting to skip the rest of this negotiation phase
     this.received = new Map();  // gold received this negotiation phase
+    this.dealDiscards = new Map(); // deal-discards made this negotiation phase
     this.pendingTrades = new Set();
     this.lastRoll = null;
     this.ranking = null;
@@ -273,6 +274,7 @@ class Room {
       deckCounts: { king: this.decks.king.length, noble: this.decks.noble.length },
       ready: [...this.ready],
       skipVotes: [...this.skipVotes],
+      dealDiscardsLeft: Math.max(0, this.settings.negotiationDiscards - (this.dealDiscards.get(pid) || 0)),
       skipNeeded: this.skipVotesNeeded(),
       received: Object.fromEntries(this.received),
       lastRoll: this.lastRoll,
@@ -313,6 +315,21 @@ class Room {
         if (this.chat.length > 200) this.chat.shift();
         return this.sync();
       }
+      case 'leave': {
+        // Leaving on purpose from the lobby: removed at once, no grace period.
+        if (this.phase !== 'lobby') throw new GameError('You can only leave from the lobby');
+        clearTimeout(p.removeHandle);
+        const sock = p.socketId && this.io.sockets.sockets.get(p.socketId);
+        if (sock) { sock.data.roomCode = null; sock.data.playerId = null; }
+        this.players = this.players.filter((x) => x.id !== pid);
+        this.addLog(`${p.name} left.`);
+        if (this.hostId === pid) {
+          this.hostId = (this.players.find((x) => x.connected) || this.players[0])?.id || null;
+          if (this.hostId) this.addLog(`${this.player(this.hostId).name} is now the host.`);
+        }
+        if (!this.players.length) { this.dispose(); return; }
+        return this.sync();
+      }
       case 'updateSettings':
         if (!isHost || this.phase !== 'lobby') throw new GameError('Only the host can change settings in the lobby');
         this.settings = sanitizeSettings(this.settings, payload);
@@ -350,15 +367,19 @@ class Room {
         if (this.playsRemaining <= 0) throw new GameError('No plays left this turn');
         const i = p.hand.findIndex((c) => c.uid === String(payload.uid));
         if (i < 0) throw new GameError('Card not in hand');
+        // Nobles place in front of themselves. The King's Knight "is meant to be given to a noble"
+        // (rules guide), so the King places in front of a Noble, never in front of themselves.
         let target = pid;
-        if (payload.target && payload.target !== pid) {
-          if (this.roleOf(pid) !== 'king') throw new GameError('Only the King may place a Knight in front of another player');
-          if (!this.player(String(payload.target))) throw new GameError('Unknown player');
-          target = String(payload.target);
+        if (this.roleOf(pid) === 'king') {
+          target = String(payload.target || '');
+          if (!this.player(target) || target === pid) throw new GameError('The King places face-down cards in front of a Noble');
+        } else if (payload.target && payload.target !== pid) {
+          throw new GameError('Only the King may place a card in front of another player');
         }
         const [c] = p.hand.splice(i, 1);
         this.player(target).tableau.push({ ...c, faceDown: true, placedBy: pid });
         this.playsRemaining--;
+        this.playsUsed++;
         this.addLog(target === pid ? `${p.name} placed a card face down (a Knight?).` : `${p.name} placed a card face down in front of ${this.player(target).name}.`, 'play');
         return this.sync();
       }
@@ -386,16 +407,8 @@ class Room {
       }
       case 'proposeTrade':
         return this.proposeTrade(pid, String(payload.to), String(payload.uid));
-      case 'discardForDeal': {
-        if (this.phase !== 'negotiation') throw new GameError('Only during negotiation');
-        const i = p.hand.findIndex((c) => c.uid === String(payload.uid));
-        if (i < 0) throw new GameError('Card not in hand');
-        const [c] = p.hand.splice(i, 1);
-        this.discardCard(c);
-        this.addLog(`${p.name} discarded a card as part of a deal.`);
-        this.drawCards(pid, 1);
-        return this.sync();
-      }
+      case 'discardForDeal':
+        return this.proposeDealDiscard(pid, String(payload.with || ''), String(payload.uid));
       case 'ready': {
         if (this.phase !== 'negotiation') return;
         if (this.ready.has(pid)) this.ready.delete(pid); else this.ready.add(pid);
@@ -449,6 +462,45 @@ class Room {
     if (!this.settings.mustPlayAll || this.playsRemaining <= 0) return true;
     const p = this.player(pid);
     return !p.hand.some((c) => DEF_BY_ID.get(c.defId).timing === 'turn' && this.playableReason(pid, c) === true);
+  }
+
+  // Rules guide: "You can discard cards but only as a deal with someone else. Never discard
+  // just to get a replacement card." So the other side of the deal has to agree, and each
+  // player gets a limited number of deal-discards per negotiation phase.
+  async proposeDealDiscard(pid, withId, uid) {
+    if (this.phase !== 'negotiation') throw new GameError('Only during negotiation');
+    const a = this.player(pid), b = this.player(withId);
+    if (!b || b.id === pid) throw new GameError('Pick the player you made the deal with');
+    const used = this.dealDiscards.get(pid) || 0;
+    if (used >= this.settings.negotiationDiscards) {
+      throw new GameError(this.settings.negotiationDiscards ? 'No deal discards left this negotiation' : 'Deal discards are turned off');
+    }
+    if (this.pendingTrades.has(pid)) throw new GameError('You already have an offer waiting');
+    if (!a.hand.some((c) => c.uid === uid)) throw new GameError('Card not in hand');
+    this.pendingTrades.add(pid);
+    this.addLog(`${a.name} asks ${b.name} to agree to a deal discard.`);
+    try {
+      const ok = await this.prompt(withId, {
+        type: 'chooseOption', title: `${a.name} wants to discard a card as part of a deal with you. Do you agree?`,
+        message: 'Only agree if you really made this deal. They draw a replacement card.',
+        options: [{ value: true, label: 'Yes, we made a deal' }, { value: false, label: 'No' }],
+        default: false, publicTitle: 'Considering a deal discard',
+      });
+      const i = a.hand.findIndex((c) => c.uid === uid);
+      if (!ok) { this.addLog(`${b.name} did not agree, so no card was discarded.`); return this.sync(); }
+      if (i < 0 || this.phase !== 'negotiation' || (this.dealDiscards.get(pid) || 0) >= this.settings.negotiationDiscards) {
+        this.addLog('The deal discard fell through.'); return this.sync();
+      }
+      const [c] = a.hand.splice(i, 1);
+      this.discardCard(c);
+      this.drawCards(pid, 1);
+      this.dealDiscards.set(pid, (this.dealDiscards.get(pid) || 0) + 1);
+      this.addLog(`${a.name} discarded a card as part of a deal with ${b.name} and drew a replacement.`);
+      this.sync();
+    } finally {
+      this.pendingTrades.delete(pid);
+      this.maybeEndNegotiation();
+    }
   }
 
   async proposeTrade(pid, toId, uid) {
@@ -539,11 +591,13 @@ class Room {
         while (this.resolving) await step(this.resolving.done);
 
         // ---- Negotiation phase ----
-        if (this.settings.negotiationTime > 0) {
+        // No negotiation after the final round: the game ends after its last card (Royal Advisor FAQ).
+        if (this.settings.negotiationTime > 0 && r < this.settings.rounds) {
           this.phase = 'negotiation';
           this.ready.clear();
           this.skipVotes.clear();
           this.received.clear();
+          this.dealDiscards.clear();
           this.addLog('Negotiation phase — trade gold, exchange cards, make deals. Nothing is binding.', 'phase');
           await step(this.timer.start(this.settings.negotiationTime, 'Negotiation'));
           while (this.resolving) await step(this.resolving.done);
@@ -551,6 +605,7 @@ class Room {
           this.ready.clear();
           this.skipVotes.clear();
           this.received.clear();
+          this.dealDiscards.clear();
         }
 
         this.phase = 'roundEnd';
@@ -641,6 +696,7 @@ class Room {
     this.turnOpen = true;
     this.interruptTurn = false;
     this.playsRemaining = this.playsFor(pid);
+    this.playsUsed = 0;         // cards played or placed face down this turn
     this.addLog(`${p.name}'s turn (${this.roleOf(pid) === 'king' ? 'King' : 'Noble'} — ${this.playsRemaining} plays).`, 'turn');
     this.expire('turnStart', pid);
     await this.runHooks('onTurnStart', { player: pid });
@@ -662,9 +718,16 @@ class Room {
     this.ensureActive(game);
     this.expire('turnEnd', pid);
     // "Plays N cards, then draws N" — everyone is kept at the minimum hand size.
+    // "Plays 2 cards, then draws 2" (rules guide). You draw as many as you played, up to your
+    // normal number of plays, and never end below the hand size. So a card gained mid-turn
+    // (e.g. with Sub Rosa) doesn't cost you a draw, and hands can grow past 8 (Royal Advisor FAQ).
     for (const q of this.players) {
-      const d = this.topUp(q.id);
-      if (d && q.id === pid) this.addLog(`${q.name} draws ${d} card${d > 1 ? 's' : ''}.`);
+      let d;
+      if (q.id === pid) {
+        const want = Math.max(Math.min(this.playsUsed || 0, this.playsFor(pid)), this.settings.handSize - q.hand.length);
+        d = want > 0 ? this.drawCards(q.id, want) : 0;
+        if (d) this.addLog(`${q.name} draws ${d} card${d > 1 ? 's' : ''}.`);
+      } else d = this.topUp(q.id);
     }
     await this.resolveCrown();
     this.ensureActive(game);
@@ -728,6 +791,12 @@ class Room {
       this.addLog(`${a.name}'s ${gone.map((c) => DEF_BY_ID.get(c.defId).name).join(', ')} is discarded.`);
     }
     [a.hand, b.hand] = [b.hand, a.hand];
+    // Face-down cards (Knights or bluffs) stay in front of the seat, so the player who moves
+    // into it inherits them without being able to check them (Royal Advisor FAQ). Face-up
+    // cards like Hindsight or Scout are personal bets and stay with their owner.
+    const fdA = a.tableau.filter((t) => t.faceDown), fdB = b.tableau.filter((t) => t.faceDown);
+    a.tableau = [...a.tableau.filter((t) => !t.faceDown), ...fdB];
+    b.tableau = [...b.tableau.filter((t) => !t.faceDown), ...fdA];
     this.leaderId = newId;
     // Synchronous notification for effects/statuses that care who becomes King.
     for (const src of [...this.effects, ...this.players.flatMap((p) => p.statuses)]) {
@@ -775,7 +844,7 @@ class Room {
     const game = this.game;
 
     p.hand.splice(idx, 1);
-    if (d.timing !== 'anytime') this.playsRemaining--;
+    if (d.timing !== 'anytime') { this.playsRemaining--; if (this.currentPlayerId === pid) this.playsUsed++; }
     let done;
     this.resolving = { player: pid, cardName: d.name, done: new Promise((r) => { done = r; }) };
     this.timer.pause();

@@ -39,6 +39,8 @@
       <h1 class="title small" data-theme="gameTitle">GAME TITLE</h1>
       <div class="room-code">Room <strong id="lobby-code"></strong>
         <button id="btn-copy" class="ghost">Copy invite link</button>
+        <button id="btn-leave" class="ghost">Leave lobby</button>
+        <button id="btn-rules-lobby" class="ghost rules-btn" type="button">Rules</button>
       </div>
       <div class="lobby-cols">
         <div class="panel">
@@ -64,6 +66,7 @@
       <span class="chip" id="tb-phase"></span>
       <span class="chip" id="tb-deck"></span>
       <div id="timer"><div id="timer-fill"></div><span id="timer-text"></span></div>
+      <button id="btn-rules" class="ghost danger rules-btn" type="button">Rules</button>
       <button id="btn-end-game" class="ghost danger hidden">End game</button>
     </header>
     <main id="board">
@@ -81,7 +84,7 @@
         <div id="negotiation" class="panel hidden">
           <h3>Negotiation</h3>
           <p class="muted">Make deals over voice or chat — nothing is binding. Trade gold, exchange cards one-for-one
-            (select a card in your hand below), or discard a card as part of a deal.</p>
+            (select a card in your hand below), or discard a card as part of a deal (the other player must agree).</p>
           <div class="row">
             <select id="gift-to"></select>
             <input id="gift-amount" type="number" min="0" step="100" value="100">
@@ -119,7 +122,8 @@
           <span id="trade-group" class="hidden">
             <select id="trade-to"></select>
             <button id="btn-trade" disabled>Offer exchange</button>
-            <button id="btn-deal-discard" disabled title="Only as part of a deal. You draw a replacement.">Discard (deal)</button>
+            <select id="discard-with" title="The player you made the deal with — they must agree"></select>
+            <button id="btn-deal-discard" disabled title="Only as part of a deal: the other player must agree. You draw a replacement.">Discard (deal)</button>
           </span>
           <span id="card-reason" class="muted"></span>
         </div>
@@ -137,6 +141,7 @@
   </aside>
 
   <div id="modal" class="hidden"><div id="modal-box"></div></div>
+  <div id="rules" class="hidden" role="dialog" aria-modal="true" aria-label="Rules"><div id="rules-box"></div></div>
   <div id="toasts"></div>
   <footer id="credits" data-theme="credits"></footer>
 

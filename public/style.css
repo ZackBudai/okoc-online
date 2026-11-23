@@ -396,3 +396,20 @@ body[data-screen="game"] #credits {
   .side.right .p-meta, .side.right .p-front, .side.right .p-status { justify-content: flex-start; }
   .p-front { padding: 0 4px; }
 }
+
+/* ---------- rules summary ---------- */
+#topbar .rules-btn { padding: 8px 12px; }
+#rules { position: fixed; inset: 0; background: rgba(0, 0, 0, .6); display: grid; place-items: center; z-index: 55; padding: 16px; }
+#rules-box {
+  background: var(--black); color: var(--white); border-radius: 22px; box-shadow: 0 0 0 4px var(--red);
+  width: min(720px, 100%); max-height: 88vh; overflow: auto; padding: 22px 26px;
+  --muted: rgba(255, 255, 255, .6);
+}
+.rules-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.rules-head h3 { margin: 0; font-size: 26px; font-weight: 900; text-transform: uppercase; }
+.rules-head button { color: var(--white); border-color: var(--white); }
+.rules-goal { font-weight: 900; font-size: 18px; color: var(--red); text-transform: uppercase; margin: 10px 0 4px; }
+#rules-box section { margin-top: 14px; }
+#rules-box h4 { margin: 0 0 6px; font-size: 12px; font-weight: 900; text-transform: uppercase; letter-spacing: .06em; color: var(--red); }
+#rules-box ul { margin: 0; padding-left: 18px; }
+#rules-box li { margin: 3px 0; font-size: 14px; line-height: 1.4; }

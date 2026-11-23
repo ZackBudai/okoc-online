@@ -65,7 +65,7 @@ function makeBot(name) {
         }
         await new Promise((r) => setTimeout(r, 30));
         const card = st.hand.find((c) => c.playable);
-        if (st.playsRemaining > 0 && st.hand.length && Math.random() < 0.15) await act('placeFaceDown', { uid: (st.hand.find((c) => c.knight) || st.hand[0]).uid });
+        if (st.playsRemaining > 0 && st.hand.length && Math.random() < 0.15) await act('placeFaceDown', { uid: (st.hand.find((c) => c.knight) || st.hand[0]).uid, target: meP.role === 'king' ? st.players.find((p) => p.id !== st.you).id : undefined });
         else if (card && st.playsRemaining > 0) await act('playCard', { uid: card.uid });
         else if (st.canEndTurn) await act('endTurn');
       }

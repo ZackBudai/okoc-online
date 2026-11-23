@@ -13,6 +13,7 @@ const defaults = {
   mustPlayAll: true,          // can't end your turn early while you still have a playable card
   negotiationTime: 120,       // seconds; 0 = skip
   negotiationReceiveCap: 400, // max gold one player may RECEIVE per negotiation phase (0 = no cap)
+  negotiationDiscards: 1,     // deal-discards each player may make per negotiation phase (0 = none)
   negotiationSkipVote: 'majority', // 'majority' | 'all' | 'off' — votes needed to skip the rest of negotiation
   turnTime: 90,
   promptTime: 30,
@@ -44,6 +45,7 @@ const schema = [
   { key: 'alternateDirection', label: 'Alternate turn direction each round', type: 'bool' },
   { key: 'skipDisconnected', label: 'Auto-skip disconnected players', type: 'bool' },
   { key: 'minPlayers', label: 'Minimum players', type: 'number', min: 2, max: 8, step: 1 },
+  { key: 'negotiationDiscards', label: 'Deal discards per player per negotiation (0 = none)', type: 'number', min: 0, max: 5, step: 1 },
   {
     key: 'negotiationSkipVote', label: 'Vote to skip negotiation', type: 'select',
     options: [['majority', 'Majority of players'], ['all', 'Everyone'], ['off', 'Off']],

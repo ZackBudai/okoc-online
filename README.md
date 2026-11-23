@@ -34,29 +34,50 @@ Game state is kept in memory. Restarting the server ends any game in progress.
 
 **Each round (4 rounds; clockwise, then counter-clockwise, alternating)**
 1. **Playing phase:** the King always goes first. The King plays 3 cards (2 if there are
-   3 or fewer Nobles), then draws back up. Then each Noble in seat order plays 2 cards and
-   draws back up.
+   3 or fewer Nobles), then draws that many. Then each Noble in seat order plays 2 cards and
+   draws 2. Hands never drop below 8 but can grow past it (for example after taking a card
+   with Sub Rosa).
    - You must use all your plays if you have a playable card.
    - Playing a card face down counts as a play. Any card can be played face down as a
-     claimed Knight. Only a real Knight protects you, so anything else is a bluff. The King
-     can place a face-down card in front of any player.
+     claimed Knight. A real Knight blocks one Betrayal and is then discarded; a bluff is
+     revealed and gives no protection. Nobles place them in front of themselves; the King
+     places them in front of a Noble (never themselves), who can't look at it. Nothing
+     protects the King from Betray the King.
    - Choose-one cards ask which option you want.
    - The turn timer pauses while a card resolves. Reaction cards open a short window after
      each play.
-2. **Negotiation phase** (2-minute timer): trade gold (a player can receive at most 400 per
-   phase), exchange cards one-for-one with a player of the same role, or discard a card as part
-   of a deal (you draw a replacement). Nothing is binding. The phase ends early once everyone
-   is Ready and no exchange offer is waiting.
+2. **Negotiation phase** (2-minute timer; none after the final round): trade gold (a player
+   can receive at most 400 per phase), exchange cards one-for-one with a player of the same
+   role, or discard a card as part of a deal (you draw a replacement). A deal discard names
+   the other player in the deal, who must agree, and each player gets one per negotiation
+   phase, so nobody can discard over and over to fish for a better card. Nothing is binding.
+   The phase ends early once everyone is Ready and no offer is waiting, or when enough
+   players vote to skip.
 
 **At any time**
 - **The crown changes hands** as soon as a Noble has more gold than the King. The new King
-  swaps seats and hands with the old King, who becomes a Noble. If the change happens during
+  swaps seats and hands with the old King, who becomes a Noble. Face-down cards stay in front
+  of the seat, so the old King inherits them without seeing them. If the change happens during
   either player's turn, the turn passes to the next seat. If two Nobles qualify at once, they
   roll and the lower roll loses 100.
 - Hands are kept at 8 or more. If a card is lost or discarded, a replacement is drawn
   immediately.
 
-**Winning:** whoever is King after the last round wins.
+**Card rulings** (from the Royal Advisor FAQ on onecrown.store)
+- Betrayal needs vocal support after it is played, or it has no effect.
+- Isolation (gold option): other players' cards can't take or cost you gold until it ends,
+  except Royal Bomb and Betrayal. Your own cards still cost you.
+- Helping Hand: draw 2 and play one extra card; Helping Hand itself doesn't use up a play.
+- Bad Blood stops the moment its owner becomes King.
+- Sub Rosa: after looking at a face-down Knight, a roll of 4+ takes a random card from that
+  player's hand, unseen.
+- Anchor: the King picks both players first; the first chooses to lose 200, or for the
+  second to lose 100 to the King.
+- Debt Collector: the chosen player must pick another Noble, never the King.
+- People's Champion: you may nominate yourself; a winning challenger swaps gold with the King.
+
+**Winning:** whoever is King when the last card of the final round is played wins (there is
+no negotiation after the final round).
 
 All the numbers above can be changed in the lobby settings.
 

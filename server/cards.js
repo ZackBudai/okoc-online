@@ -64,6 +64,14 @@ async function stealCard(ctx, owner) {
   }
 }
 const STEAL_PROOF = new Set(['royal-bomb']);
+// Take a random card from `owner` without seeing their hand (Royal Bomb can't be stolen).
+async function stealRandomCard(ctx, owner) {
+  const stealable = ctx.hand(owner).filter((c) => !STEAL_PROOF.has(c.id));
+  if (!stealable.length) { ctx.log(`${ctx.name(owner)} has no card that can be taken.`); return; }
+  const pick = stealable[crypto.randomInt(0, stealable.length)];
+  ctx.log(`${ctx.name(ctx.me)} takes a random card from ${ctx.name(owner)}.`);
+  ctx.moveCard(owner, ctx.me, pick.uid);
+}
 
 // King Maker sides, keyed by the uid of the Betray the King card being played.
 const kingMakerBets = new Map();
@@ -136,10 +144,21 @@ module.exports = [
       if (pair.length < 2) return;
       const [a, b] = pair;
       const key = `bad-blood-${ctx.cardInstance.uid}`;
+      const owner = ctx.me;
+      const state = { ended: false };
+      // Royal Advisor FAQ: Bad Blood stops the moment you become King.
+      const stopIfKing = (h) => {
+        if (!state.ended || !h.hasEffect(key)) return false;
+        h.removeEffect(key);
+        h.log(`Bad Blood ends: ${h.name(owner)} became King.`);
+        return true;
+      };
       ctx.addEffect({
         key,
         label: `Bad Blood: ${ctx.name(ctx.me)} gains 200 each round until ${ctx.name(a)} or ${ctx.name(b)} gives the other 200 (during negotiation)`,
-        async onRoundStart(h) { await h.gain(h.me, 200); },
+        onCrown(newId) { if (newId === owner) state.ended = true; },
+        async onTurnEnd(h) { stopIfKing(h); },
+        async onRoundStart(h) { if (stopIfKing(h) || h.isKing(owner)) { h.removeEffect(key); return; } await h.gain(h.me, 200); },
         async onGift(h, { from, to, amount }) {
           if (amount >= 200 && ((from === a && to === b) || (from === b && to === a))) {
             h.removeEffect(key);
@@ -284,7 +303,7 @@ module.exports = [
         onCrown(newId) { if (newId === creditor) state.cleared = true; },
         async onRoundStart(h) {
           if (state.cleared || h.isKing(creditor)) { h.removeStatus(debtor, key); h.log(`${h.name(creditor)}'s debts are gone.`); return; }
-          await h.transfer(debtor, creditor, 100, { ignoreProtection: true });
+          await h.transfer(debtor, creditor, 100);
         },
         async onGift(h, { from, to, amount }) {
           if (to === creditor && from !== debtor && amount >= 200) {
@@ -301,7 +320,9 @@ module.exports = [
       { label: 'Hide your cards', text: 'No one can look at your cards until the end of your next turn.',
         async play(ctx) { ctx.addStatus(ctx.me, { key: 'isolation-peek', label: 'Isolated (cards hidden)', blocks: ['peek'], expires: 'ownerNextTurnEnd' }); } },
       { label: 'Guard your gold', text: 'No one can take gold from you until the end of your next turn. This does not apply to the Betrayal card.',
-        async play(ctx) { ctx.addStatus(ctx.me, { key: 'isolation-gold', label: 'Isolated (gold guarded)', description: 'Betrayal still works.', blocks: ['take'], expires: 'ownerNextTurnEnd' }); } },
+        // Royal Advisor FAQ: while Isolated you can't lose gold to cards other players play,
+        // except Royal Bomb and Betrayal (those ignore protection). Your own cards still cost you.
+        async play(ctx) { ctx.addStatus(ctx.me, { key: 'isolation-gold', label: 'Isolated (gold guarded)', description: "Other players' cards can't take or cost you gold. Royal Bomb and Betrayal still work.", blocks: ['take', 'lose'], expires: 'ownerNextTurnEnd' }); } },
     ],
   },
   {
@@ -420,7 +441,9 @@ module.exports = [
         t = await ctx.choosePlayer({ title: 'Sub Rosa: whose hand?', kind: 'peek' });
         if (!t || !(await ctx.peekHand(ctx.me, t))) return;
       }
-      if ((await ctx.roll({ label: 'Sub Rosa' })) >= 4) await stealCard(ctx, t);
+      if ((await ctx.roll({ label: 'Sub Rosa' })) < 4) return;
+      if (mode === 'knight') await stealRandomCard(ctx, t); // FAQ: blind, at random
+      else await stealCard(ctx, t);
     },
   },
   {
@@ -485,16 +508,18 @@ module.exports = [
   {
     id: 'anchor', name: 'Anchor', deck: 'king', copies: 2,
     text: 'Player loses 200 gold to the bank or lets the player of your choice lose 100 to you.',
+    // Royal Advisor FAQ: the King picks player A and player B, then A chooses: A loses 200 to
+    // the bank, or B loses 100 to the King.
     async play(ctx) {
-      const t = await ctx.choosePlayer({ title: 'Anchor: pick a player', kind: null });
-      if (!t) return;
-      const pay = await ctx.chooseOption('Anchor: choose one', [
+      const a = await ctx.choosePlayer({ title: 'Anchor: who makes the choice? (player A)', kind: null });
+      if (!a) return;
+      const b = await ctx.choosePlayer({ title: `Anchor: who might lose 100 to you? (player B, ${ctx.name(a)} decides)`, exclude: [a], kind: null });
+      const pay = !b || await ctx.chooseOption('Anchor: choose one', [
         { value: true, label: 'I lose 200 gold to the bank' },
-        { value: false, label: `${ctx.name(ctx.me)} picks a player to lose 100 to them` },
-      ], { chooser: t, publicTitle: 'Deciding (Anchor)' });
-      if (pay) { await ctx.lose(t, 200, { ignoreProtection: true }); return; }
-      const v = await ctx.choosePlayer({ title: 'Anchor: who loses 100 to you?', kind: 'take' });
-      if (v) await ctx.transfer(v, ctx.me, 100);
+        { value: false, label: `${ctx.name(b)} loses 100 to ${ctx.name(ctx.me)}` },
+      ], { chooser: a, publicTitle: 'Deciding (Anchor)' });
+      if (pay) await ctx.lose(a, 200);
+      else await ctx.transfer(b, ctx.me, 100);
     },
   },
   {
@@ -505,7 +530,7 @@ module.exports = [
       if (!t) return;
       const refuse = ctx.canAfford(t, 300) && !(await ctx.confirm(`Bend the Knee: thank ${ctx.name(ctx.me)} for everything they've done for you, or pay the bank 300?`,
         { chooser: t, yes: 'Thank the King', no: 'Refuse and pay 300', publicTitle: 'Deciding (Bend the Knee)', default: true }));
-      if (refuse) await ctx.lose(t, 300, { ignoreProtection: true });
+      if (refuse) await ctx.lose(t, 300);
       else ctx.announce(`${ctx.name(t)} must thank ${ctx.name(ctx.me)} for everything they've done for them!`);
     },
   },
@@ -521,13 +546,13 @@ module.exports = [
       for (const [a, b] of pairs) {
         const ra = await ctx.roll({ player: a, label: 'Black Plague' });
         const rb = await ctx.roll({ player: b, label: 'Black Plague' });
-        if (ra === 1 || rb === 1) for (const id of [a, b]) await ctx.lose(id, 200, { ignoreProtection: true });
+        if (ra === 1 || rb === 1) for (const id of [a, b]) await ctx.lose(id, 200);
       }
       if (lone) {
         const partner = order.length > 1 ? order[crypto.randomInt(0, order.length - 1)] : null;
         const rl = await ctx.roll({ player: lone, label: 'Black Plague' });
         const rp = partner ? await ctx.roll({ player: partner, label: `Black Plague (with ${ctx.name(lone)}, can't lose)` }) : 0;
-        if (rl === 1 || rp === 1) await ctx.lose(lone, 200, { ignoreProtection: true });
+        if (rl === 1 || rp === 1) await ctx.lose(lone, 200);
       }
     },
   },
@@ -537,7 +562,8 @@ module.exports = [
     async play(ctx) {
       const t = await ctx.choosePlayer({ title: 'Debt Collector: who picks?', kind: null });
       if (!t) return;
-      const v = await ctx.choosePlayer({ chooser: t, title: 'Debt Collector: who loses 200 to the bank?', kind: 'lose' });
+      // Royal Advisor FAQ: only another Noble, never the King.
+      const v = await ctx.choosePlayer({ chooser: t, title: 'Debt Collector: which Noble loses 200 to the bank?', includeKing: false, kind: 'lose' });
       if (v) await ctx.lose(v, 200);
     },
   },
@@ -596,7 +622,7 @@ module.exports = [
     text: 'Force everyone to roll dice. Whoever rolls a 1 loses 300 to the bank. You must roll as well. If you roll a 1 you lose 500.',
     async play(ctx) {
       for (const id of ctx.players()) {
-        if ((await ctx.roll({ player: id, label: 'Mad King' })) === 1) await ctx.lose(id, id === ctx.me ? 500 : 300, { ignoreProtection: true });
+        if ((await ctx.roll({ player: id, label: 'Mad King' })) === 1) await ctx.lose(id, id === ctx.me ? 500 : 300);
       }
     },
   },
@@ -609,9 +635,9 @@ module.exports = [
       const comply = await ctx.confirm(`Royal Parrot: pay 100 and repeat ${ctx.name(ctx.me)}'s sentence in a high-pitched voice, or refuse and pay 300?`,
         { chooser: t, yes: 'Pay 100 and squawk', no: 'Refuse (pay 300)', publicTitle: 'Deciding (Royal Parrot)', default: true });
       if (comply) {
-        await ctx.lose(t, 100, { ignoreProtection: true });
+        await ctx.lose(t, 100);
         ctx.announce(`🦜 ${ctx.name(t)} must repeat ${ctx.name(ctx.me)}'s sentence in a high-pitched voice!`);
-      } else await ctx.lose(t, 300, { ignoreProtection: true });
+      } else await ctx.lose(t, 300);
     },
   },
   {
@@ -638,7 +664,7 @@ module.exports = [
         tied = tied.filter((_, i) => rolls[i] === low);
       }
       ctx.announce(`${ctx.name(tied[0])} is the scapegoat!`);
-      await ctx.lose(tied[0], 300, { ignoreProtection: true });
+      await ctx.lose(tied[0], 300);
     },
   },
   {
@@ -669,7 +695,7 @@ module.exports = [
       const voters = ctx.nobles().filter((id) => id !== t);
       if (!voters.length) return;
       const { tally } = await ctx.vote({ voters, title: `Snakes: raise your hand against ${ctx.name(t)}?`, options: ['Raise hand', 'Keep hand down'] });
-      if (tally['Raise hand']) await ctx.lose(t, 300, { ignoreProtection: true });
+      if (tally['Raise hand']) await ctx.lose(t, 300);
     },
   },
   {
@@ -695,8 +721,8 @@ module.exports = [
       const q = (id) => ctx.confirm(`We Ride Together: ${ctx.name(low)} rolled lower. Agree that you both lose 100 instead?`,
         { chooser: id, yes: 'Both lose 100', no: `${ctx.name(low)} loses 200`, publicTitle: 'Deciding (We Ride Together)' });
       const [okA, okB] = await Promise.all([q(a), q(b)]);
-      if (okA && okB) { for (const id of pair) await ctx.lose(id, 100, { ignoreProtection: true }); }
-      else await ctx.lose(low, 200, { ignoreProtection: true });
+      if (okA && okB) { for (const id of pair) await ctx.lose(id, 100); }
+      else await ctx.lose(low, 200);
     },
   },
 ];

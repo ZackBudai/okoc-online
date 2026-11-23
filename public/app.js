@@ -153,9 +153,24 @@ function renderSettings() {
   }
 }
 
+// During the playing phase: whose turn it is out of how many this round, counted from the King.
+function phaseLabel(s) {
+  if (s.phase === 'turns' && s.currentPlayerId) {
+    const n = s.players.length;
+    const king = s.players.findIndex((p) => p.id === s.leaderId);
+    const cur = s.players.findIndex((p) => p.id === s.currentPlayerId);
+    if (king >= 0 && cur >= 0) {
+      const step = s.direction === 'cw' ? 1 : -1;
+      const pos = ((((cur - king) * step) % n) + n) % n + 1;
+      return `Playing · turn ${pos}/${n}`;
+    }
+  }
+  return PHASE_LABEL[s.phase] || s.phase;
+}
+
 const PHASE_LABEL = {
   leaderSelect: 'Choosing the Leader', roundStart: 'Round starting', negotiation: 'Negotiation',
-  turns: 'Turns', roundEnd: 'Round ending', gameOver: 'Game over',
+  turns: 'Playing phase', roundEnd: 'Round ending', gameOver: 'Game over',
 };
 
 function renderGame() {
@@ -165,7 +180,7 @@ function renderGame() {
   $('#tb-round').textContent = s.round ? `Round ${s.round}/${s.settings.rounds}` : 'Setup';
   $('#tb-dir').textContent = s.direction === 'cw' ? '↻ Clockwise' : '↺ Counter-clockwise';
   show($('#tb-dir'), !!s.round);
-  $('#tb-phase').textContent = PHASE_LABEL[s.phase] || s.phase;
+  $('#tb-phase').textContent = phaseLabel(s);
   $('#tb-deck').replaceChildren(
     h('span', { class: 'pile' }, cardBack('king', 'pile-back'), `${leaderT} deck ${s.deckCounts.king}`),
     h('span', { class: 'pile' }, cardBack('noble', 'pile-back'), `${nobleT} deck ${s.deckCounts.noble}`));
@@ -305,7 +320,7 @@ function renderHand() {
   // Face-down placement (real Knight or bluff) — my turn only; the King may place it in front of anyone.
   show($('#facedown-group'), myTurn);
   if (myTurn) {
-    fillPlayerSelect($('#facedown-target'), amKing ? s.players : s.players.filter((p) => p.id === s.you), (p) => (p.id === s.you ? 'in front of me' : `in front of ${p.name}`));
+    fillPlayerSelect($('#facedown-target'), s.players.filter((p) => (amKing ? p.id !== s.you : p.id === s.you)), (p) => (p.id === s.you ? 'in front of me' : `in front of ${p.name}`));
     show($('#facedown-target'), amKing);
     $('#btn-facedown').disabled = !sel || s.playsRemaining <= 0 || !!s.resolving;
   }
@@ -320,7 +335,12 @@ function renderHand() {
     const canTrade = !!$('#trade-to').options.length;
     show($('#trade-to'), canTrade);
     show($('#btn-trade'), canTrade);
-    $('#btn-deal-discard').disabled = !sel;
+    // Deal discards: name the other side of the deal; they must agree. Limited per phase.
+    fillPlayerSelect($('#discard-with'), s.players.filter((p) => p.id !== s.you), (p) => `deal with ${p.name}`);
+    const left = s.dealDiscardsLeft ?? 0;
+    $('#btn-deal-discard').textContent = `Discard (deal) · ${left} left`;
+    $('#btn-deal-discard').disabled = !sel || !left || !$('#discard-with').value;
+    show($('#discard-with'), left > 0);
   }
 
   let reason = '';
@@ -425,6 +445,75 @@ setInterval(() => {
 $('#btn-create').onclick = () => enter('createRoom');
 $('#btn-join').onclick = () => enter('joinRoom');
 $('#join-code').addEventListener('keydown', (e) => { if (e.key === 'Enter') enter('joinRoom'); });
+// ---- rules summary (uses this room's settings where they're known)
+function openRules() {
+  const st = (state && state.settings) || {};
+  const v = (k, d) => (st[k] ?? d);
+  const K = theme.leaderTitle || 'King', N = theme.playerTitle || 'Noble', G = cur();
+  const sec = (title, ...items) => h('section', null, h('h4', null, title), h('ul', null, items.map((t) => h('li', null, t))));
+  $('#rules-box').replaceChildren(
+    h('div', { class: 'rules-head' }, h('h3', null, 'How to play'), h('button', { class: 'ghost', onclick: closeRules }, 'Close')),
+    h('p', { class: 'rules-goal' }, `Be the ${K} when the last card of round ${v('rounds', 4)} is played.`),
+    sec('Setup',
+      `One player is dealt the ${K}; everyone else is a ${N}.`,
+      `The ${K} starts with ${v('kingStartingGold', 1000)} ${G}, each ${N} with ${v('nobleStartingGold', 600)}. ${G[0].toUpperCase() + G.slice(1)} stays between 0 and ${v('maxGold', 2000)}: you can't go past either limit, and at 0 you keep playing.`,
+      `Everyone is dealt ${v('handSize', 8)} cards. The ${K} draws from the ${K} deck, ${N}s from the ${N} deck.`),
+    sec('Each round: 1. Playing phase',
+      `The ${K} always goes first and plays ${v('kingPlays', 3)} cards (${v('kingPlaysFewNobles', 2)} with 3 or fewer ${N}s).`,
+      `Then each ${N} plays ${v('noblePlays', 2)}, going round the table. Direction alternates each round (see the arrow).`,
+      'Use all your plays if you have a playable card.',
+      `At the end of your turn, draw as many cards as you played. You can hold more than ${v('handSize', 8)} cards but never fewer: if you lose a card, draw a replacement straight away.`,
+      'Cards with a dotted line: pick ONE of the two effects.'),
+    sec('Each round: 2. Negotiation (none after the final round)',
+      (() => {
+        const t = v('negotiationTime', 120);
+        if (!t) return 'Negotiation is turned off in this room.';
+        const len = t < 60 ? `${t} seconds` : `${Math.round((t / 60) * 10) / 10} minute${t === 60 ? '' : 's'}`;
+        return `Up to ${len} to make deals. Nothing is binding.`;
+      })(),
+      `Trade ${G}: a player can receive at most ${v('negotiationReceiveCap', 400)} per phase.`,
+      `Swap cards one-for-one with a player of the same role (${N} with ${N}).`,
+      `Discard a card only as part of a deal: name the other player, who must agree. You get ${v('negotiationDiscards', 1)} per negotiation, and you draw a replacement.`,
+      'Ends when everyone is Ready, the timer runs out, or enough players vote to skip.'),
+    sec(`Becoming the ${K}`,
+      `The moment a ${N} has more ${G} than the ${K}, they take the crown: they swap seats and hands with the old ${K}, who becomes a ${N}.`,
+      'Face-down cards stay in front of the seat, so whoever moves into it inherits them without seeing them.',
+      `If it happens during a turn, play passes to the next player. If two ${N}s qualify at once, they roll; the lower roll loses 100.`),
+    sec('Knights and bluffs',
+      `Place any card face down and claim it is a Knight. It counts as a play. ${N}s place them in front of themselves.`,
+      'A real Knight blocks one Betrayal and is then discarded. A bluff is revealed and gives no protection.',
+      `The ${K} can't use a Knight on themselves: the ${K}'s Knight goes face down in front of a ${N}, who can't look at it.`,
+      `Nothing protects the ${K} from "Betray the ${K}".`),
+    sec('Card rulings (official FAQ)',
+      'Betrayal: someone must speak up in support after it is played, or it has no effect.',
+      "Isolation (gold): other players' cards can't take or cost you gold until it ends, except Royal Bomb and Betrayal. Your own cards still cost you.",
+      'Helping Hand: draw 2 and play one extra card; Helping Hand itself does not use up a play.',
+      `Bad Blood: stops the moment its owner becomes the ${K}.`,
+      "Sub Rosa: if you looked at a face-down Knight and roll 4+, you take a random card from that player's hand without seeing it.",
+      `Anchor: the ${K} picks two players; the first chooses to lose 200, or for the second to lose 100 to the ${K}.`,
+      `Debt Collector: the chosen player must pick another ${N}, never the ${K}.`,
+      `People's Champion: you may nominate yourself. If the challenger wins, they swap ${G} with the ${K}.`),
+    sec('Good to know',
+      `"The bank" has unlimited ${G}; it never runs out.`,
+      `${N}s can't hold ${K} cards and vice versa.`));
+  show($('#rules'), true);
+}
+function closeRules() { show($('#rules'), false); }
+$('#btn-rules').onclick = openRules;
+$('#btn-rules-lobby').onclick = openRules;
+$('#rules').addEventListener('click', (e) => { if (e.target.id === 'rules') closeRules(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeRules(); });
+
+$('#btn-leave').onclick = async () => {
+  const res = await action('leave');
+  if (!res || !res.ok) return;
+  session.clear();
+  state = null;
+  settingsBuilt = false;
+  history.replaceState(null, '', '/');
+  $('#join-code').value = '';
+  showScreen('home');
+};
 $('#btn-copy').onclick = async () => {
   const url = `${location.origin}/?room=${state.code}`;
   try { await navigator.clipboard.writeText(url); toast('Invite link copied'); } catch { toast(url); }
@@ -439,7 +528,7 @@ $('#btn-play').onclick = () => { if (selectedUid) { const uid = selectedUid; sel
 const withSelected = (fn) => () => { if (!selectedUid) return; const uid = selectedUid; selectedUid = null; fn(uid); renderHand(); };
 $('#btn-facedown').onclick = withSelected((uid) => action('placeFaceDown', { uid, target: $('#facedown-target').value || undefined }));
 $('#btn-trade').onclick = withSelected((uid) => { action('proposeTrade', { uid, to: $('#trade-to').value }); toast('Exchange offered — waiting for an answer'); });
-$('#btn-deal-discard').onclick = withSelected((uid) => action('discardForDeal', { uid }));
+$('#btn-deal-discard').onclick = withSelected((uid) => { action('discardForDeal', { uid, with: $('#discard-with').value }); toast('Waiting for them to agree to the deal'); });
 $('#gift-to').onchange = () => render();
 $('#chat-form').onsubmit = (e) => {
   e.preventDefault();

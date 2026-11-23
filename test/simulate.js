@@ -39,7 +39,8 @@ function makeBot(name) {
       for (const pr of st.prompts) {
         if (bot.answered.has(pr.id)) continue;
         bot.answered.add(pr.id);
-        const value = pr.type === 'number' ? pr.min : Math.floor(Math.random() * Math.max(1, pr.options.length));
+        const value = pr.type === 'text' ? (Math.random() < 0.85 ? (pr.suggestion || 'Thank you, my king!') : null)
+          : pr.type === 'number' ? pr.min : Math.floor(Math.random() * Math.max(1, pr.options.length));
         await new Promise((r) => setTimeout(r, 20));
         await act('respond', { promptId: pr.id, value });
       }

@@ -962,6 +962,11 @@ class Room {
             return entry.settle(n);
           }
           if (spec.type === 'info') return entry.settle(true);
+          if (spec.type === 'text') {
+            if (raw === null || raw === undefined) return entry.settle(null); // refused
+            const t = String(raw).replace(/[ -]/g, ' ').trim().slice(0, 200);
+            return entry.settle(t || null);
+          }
           const i = Number(raw);
           if (!Number.isInteger(i) || i < 0 || i >= options.length) throw new GameError('Invalid choice');
           entry.settle(options[i].value);
@@ -978,6 +983,7 @@ class Room {
             id, type: spec.type, title: spec.title, message: spec.message || '',
             options: options.map((o) => ({ label: o.label, card: o.card || null, back: o.back || null })),
             cards: spec.cards || null, min: spec.min, max: spec.max, step: spec.step,
+            placeholder: spec.placeholder || '', suggestion: spec.suggestion || '', refuseLabel: spec.refuseLabel || '',
             endsAt: entry.endsAt,
           };
         },
@@ -1192,6 +1198,47 @@ class Room {
         else room.addLog(`Result: ${voters.map((id) => `${nameOf(id)}: ${votes[id]}`).join(', ')}.`, 'vote');
         room.sync();
         return { votes, tally };
+      },
+
+      /*
+       * Spoken card parts. In 'typed' mode the player must type their line; check(text) decides
+       * whether it counts, and a passing line is posted to chat and the log as their speech.
+       * Returns { ok, text, refused }. In 'honour' mode nobody types: the instruction is
+       * announced and { ok: true, honour: true } is returned.
+       * o = { player, title, instruction, check, suggestion, placeholder, failHint, refuseLabel, style }
+       */
+      async speak(o = {}) {
+        active();
+        const who = o.player || meId;
+        if (room.settings.spokenParts === 'honour') {
+          ctx.announce(o.instruction || `${nameOf(who)} must speak.`);
+          return { ok: true, honour: true };
+        }
+        const deadline = Date.now() + (o.timeout || room.settings.promptTime + 15) * 1000;
+        let error = '';
+        for (let attempt = 1; attempt <= 5 && Date.now() < deadline - 1500; attempt++) {
+          const text = await room.prompt(who, {
+            type: 'text', title: o.title || 'Say your line',
+            message: [error, o.instruction].filter(Boolean).join(' '),
+            placeholder: o.placeholder || 'Type it here…', suggestion: o.suggestion || '',
+            refuseLabel: o.refuseLabel || '', default: null,
+            timeout: Math.max(2, Math.round((deadline - Date.now()) / 1000)),
+            publicTitle: `Speaking (${ctx.card?.name || 'card'})`,
+          });
+          active();
+          if (text === null) break; // refused or ran out of time
+          if (!o.check || o.check(text)) {
+            room.chat.push({ t: Date.now(), name: nameOf(who), text, style: o.style || 'speech' });
+            if (room.chat.length > 200) room.chat.shift();
+            room.addLog(`💬 ${nameOf(who)}: “${text}”`, 'speech');
+            room.sync();
+            return { ok: true, text };
+          }
+          error = `That doesn't count${o.failHint ? `: ${o.failHint}` : ''}. Try again.`;
+        }
+        room.addLog(`${nameOf(who)} didn't say it${o.failLog ? ` (${o.failLog})` : ''}.`, 'speech');
+        room.sync();
+        return { ok: false, refused: true };
       },
 
       // ---- gold ----

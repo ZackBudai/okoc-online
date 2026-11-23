@@ -413,3 +413,13 @@ body[data-screen="game"] #credits {
 #rules-box h4 { margin: 0 0 6px; font-size: 12px; font-weight: 900; text-transform: uppercase; letter-spacing: .06em; color: var(--red); }
 #rules-box ul { margin: 0; padding-left: 18px; }
 #rules-box li { margin: 3px 0; font-size: 14px; line-height: 1.4; }
+
+/* ---------- spoken card parts ---------- */
+.speak-row { display: flex; gap: 8px; margin-top: 6px; }
+.speak-input { flex: 1; min-width: 0; font-size: 16px; }
+.speak-extra { margin-top: 10px; }
+#modal-box .speak-extra button { color: var(--white); border-color: var(--white); }
+.k-speech { color: var(--white); font-style: italic; }
+.feed .entry.said { font-style: italic; }
+.feed .entry.said strong { color: var(--red); font-style: normal; }
+.feed .entry.squeak { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: #ffd6d0; }

@@ -379,6 +379,17 @@ function renderPrompt() {
   if (pr.type === 'number') {
     const input = h('input', { type: 'number', min: pr.min, max: pr.max, step: pr.step, value: pr.min });
     kids.push(h('div', { class: 'row' }, input, h('button', { class: 'primary', onclick: () => respond(input.value) }, 'Confirm')));
+  } else if (pr.type === 'text') {
+    // A spoken card part: type the line; the server checks it.
+    const input = h('input', { type: 'text', maxlength: 200, placeholder: pr.placeholder || 'Type it here…', class: 'speak-input', autocomplete: 'off' });
+    const send = () => { if (input.value.trim()) respond(input.value); };
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') send(); });
+    kids.push(h('div', { class: 'speak-row' }, input, h('button', { class: 'primary', onclick: send }, 'Say it')));
+    const extra = [];
+    if (pr.suggestion) extra.push(h('button', { class: 'ghost', onclick: () => { input.value = pr.suggestion; input.focus(); } }, 'Use suggested line'));
+    if (pr.refuseLabel) extra.push(h('button', { class: 'ghost', onclick: () => respond(null) }, pr.refuseLabel));
+    if (extra.length) kids.push(h('div', { class: 'row speak-extra' }, ...extra));
+    setTimeout(() => input.focus(), 0);
   } else if (pr.type === 'roll') {
     kids.push(h('button', { class: 'primary big', onclick: () => respond(0) }, '🎲 Roll!'));
   } else {
@@ -414,7 +425,8 @@ function renderFeeds() {
   if (atBottom) log.scrollTop = log.scrollHeight;
 
   const chat = $('#chat');
-  chat.replaceChildren(...state.chat.map((c) => h('div', { class: 'entry' }, h('strong', null, c.name + ': '), c.text)));
+  chat.replaceChildren(...state.chat.map((c) => h('div', { class: `entry${c.style ? ` said ${c.style}` : ''}` },
+    h('strong', null, c.name + (c.style ? ' says: ' : ': ')), c.style ? `“${c.text}”` : c.text)));
   chat.scrollTop = chat.scrollHeight;
   if (state.chat.length > lastChatCount && activeTab !== 'chat') $('#chat-badge').textContent = '●';
   lastChatCount = state.chat.length;
@@ -484,6 +496,13 @@ function openRules() {
       'A real Knight blocks one Betrayal and is then discarded. A bluff is revealed and gives no protection.',
       `The ${K} can't use a Knight on themselves: the ${K}'s Knight goes face down in front of a ${N}, who can't look at it.`,
       `Nothing protects the ${K} from "Betray the ${K}".`),
+    v('spokenParts', 'typed') === 'honour'
+      ? sec('Spoken card parts (honour system)',
+        'Cards that make someone speak (Loyal Dog, Bend the Knee, Royal Parrot, Loyalty, Council Meeting, Actors) just announce what must be said. Keep each other honest.')
+      : sec('Spoken card parts (typed and checked)',
+        'When a card makes you speak, type the line. The game checks it and posts it in chat as your speech.',
+        "Fixed lines must match (capitals and punctuation don't matter). Thanks and praise must name the King; a laugh must be a laugh.",
+        'Not saying it in time counts as refusing: Loyal Dog gives no gold, Council Meeting draws nothing, Bend the Knee and Royal Parrot cost 300. For Actors and Loyalty, refusals are named publicly.'),
     sec('Card rulings (official FAQ)',
       'Betrayal: someone must speak up in support after it is played, or it has no effect.',
       "Isolation (gold): other players' cards can't take or cost you gold until it ends, except Royal Bomb and Betrayal. Your own cards still cost you.",

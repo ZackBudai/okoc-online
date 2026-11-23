@@ -16,7 +16,10 @@ async function handle(st) {
     const key = `${pr.id}:${pr.endsAt}`;
     if (answered.has(key)) continue; answered.add(key);
     await new Promise((r) => setTimeout(r, 1200));
-    await act('respond', { promptId: pr.id, value: pr.type === 'number' ? pr.min : Math.floor(Math.random() * Math.max(1, pr.options.length)) });
+    // Typed lines: say the suggested line (or a generic thank-you) most of the time, refuse sometimes.
+    const value = pr.type === 'text' ? (Math.random() < 0.85 ? (pr.suggestion || 'Thank you, my king!') : null)
+      : pr.type === 'number' ? pr.min : Math.floor(Math.random() * Math.max(1, pr.options.length));
+    await act('respond', { promptId: pr.id, value });
   }
   if (st.phase === 'negotiation' && !st.ready.includes(st.you)) await act('ready');
   if (st.phase === 'turns' && st.currentPlayerId === st.you && !st.resolving && !st.prompts.length) {

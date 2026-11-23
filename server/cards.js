@@ -73,6 +73,20 @@ async function stealRandomCard(ctx, owner) {
   ctx.moveCard(owner, ctx.me, pick.uid);
 }
 
+// ---- spoken card parts (see ctx.speak) ----
+const typed = (ctx) => ctx.settings.spokenParts !== 'honour';
+const norm = (t) => String(t || '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
+const saysExactly = (phrase) => (t) => norm(t) === norm(phrase);
+const mentions = (t, name) => norm(t).includes(norm(name));
+const isThanks = (t) => /\b(thank|thanks|thankyou|ty|grateful)\b/.test(norm(t));
+const isLaugh = (t) => /(ha){2,}|(he){2,}|(ah){2,}|lol|lmao|rofl|xd/.test(norm(t).replace(/\s/g, ''));
+const wordCount = (t) => norm(t).split(' ').filter(Boolean).length;
+// Everyone in `ids` speaks at once; returns the ids that didn't.
+async function allSpeak(ctx, ids, opts) {
+  const results = await Promise.all(ids.map((id) => ctx.speak({ ...opts(id), player: id })));
+  return ids.filter((_, i) => !results[i].ok);
+}
+
 // King Maker sides, keyed by the uid of the Betray the King card being played.
 const kingMakerBets = new Map();
 
@@ -116,11 +130,27 @@ module.exports = [
     id: 'actors', name: 'Actors', copies: 3,
     choices: [
       { label: 'Thank the King', text: 'Everyone must thank the king for their glorious rule however horrible and cruel it might have been.',
-        async play(ctx) { ctx.announce(`🎭 Everyone must now thank ${ctx.name(ctx.king)} for their glorious rule, however horrible and cruel it might have been.`); } },
+        async play(ctx) {
+          const king = ctx.king, K = ctx.name(king);
+          if (!typed(ctx)) { ctx.announce(`🎭 Everyone must now thank ${K} for their glorious rule, however horrible and cruel it might have been.`); return; }
+          const refused = await allSpeak(ctx, ctx.players().filter((id) => id !== king), () => ({
+            title: `Actors: thank ${K} for their glorious rule`,
+            instruction: 'However horrible and cruel it might have been. It has to be a thank-you.',
+            check: isThanks, failHint: 'it has to thank them', suggestion: `Thank you, ${K}, for your glorious rule!`,
+          }));
+          if (refused.length) ctx.announce(`🎭 ${refused.map((id) => ctx.name(id)).join(', ')} refused to thank ${K}.`);
+        } },
       { label: 'Laugh at a player', text: 'Everyone must laugh at the player of your choice.',
         async play(ctx) {
           const t = await ctx.choosePlayer({ title: 'Who does everyone laugh at?', kind: null });
-          if (t) ctx.announce(`🎭 Everyone must laugh at ${ctx.name(t)}!`);
+          if (!t) return;
+          ctx.announce(`🎭 Everyone must laugh at ${ctx.name(t)}!`);
+          if (!typed(ctx)) return;
+          const refused = await allSpeak(ctx, ctx.players().filter((id) => id !== t), () => ({
+            title: `Actors: laugh at ${ctx.name(t)}`, check: isLaugh, failHint: 'it has to be a laugh, like "hahaha"',
+            suggestion: 'HAHAHAHA', placeholder: 'hahaha…',
+          }));
+          if (refused.length) ctx.announce(`🎭 ${refused.map((id) => ctx.name(id)).join(', ')} refused to laugh.`);
         } },
     ],
   },
@@ -234,8 +264,16 @@ module.exports = [
         } },
       { label: 'Draw two', text: 'Draw two cards, but you must praise the king.',
         async play(ctx) {
-          ctx.draw(ctx.me, 2);
-          ctx.announce(`${ctx.name(ctx.me)} must now praise ${ctx.name(ctx.king)}!`);
+          const K = ctx.name(ctx.king);
+          if (!typed(ctx)) { ctx.draw(ctx.me, 2); ctx.announce(`${ctx.name(ctx.me)} must now praise ${K}!`); return; }
+          // The draw depends on the praise.
+          const r = await ctx.speak({
+            title: `Council Meeting: praise ${K} to draw two cards`, instruction: `Say something nice about ${K}, using their name.`,
+            check: (t) => mentions(t, K) && wordCount(t) >= 3, failHint: `name ${K} and use at least 3 words`,
+            suggestion: `All hail ${K}, the greatest ruler this kingdom has known!`,
+          });
+          if (r.ok) ctx.draw(ctx.me, 2);
+          else ctx.announce(`${ctx.name(ctx.me)} wouldn't praise ${K}, so they draw nothing.`);
         } },
     ],
   },
@@ -361,7 +399,14 @@ module.exports = [
           const t = await ctx.choosePlayer({ title: 'Loyalty: who pays the King?', includeKing: false, kind: 'lose' });
           if (!t) return;
           await ctx.transfer(t, ctx.king, 100);
-          ctx.announce(`${ctx.name(t)} must pledge their loyalty to ${ctx.name(ctx.king)}!`);
+          const K = ctx.name(ctx.king);
+          if (!typed(ctx)) { ctx.announce(`${ctx.name(t)} must pledge their loyalty to ${K}!`); return; }
+          const pledge = `I pledge my loyalty to ${K}`;
+          const r = await ctx.speak({
+            player: t, title: `Loyalty: pledge your loyalty to ${K}`, instruction: `Type: “${pledge}”.`,
+            check: saysExactly(pledge), failHint: `type “${pledge}”`, suggestion: pledge,
+          });
+          if (!r.ok) ctx.announce(`${ctx.name(t)} refused to pledge their loyalty to ${K}.`);
         } },
     ],
   },
@@ -528,10 +573,24 @@ module.exports = [
     async play(ctx) {
       const t = await ctx.choosePlayer({ title: 'Bend the Knee: who must thank you?', kind: null });
       if (!t) return;
-      const refuse = ctx.canAfford(t, 300) && !(await ctx.confirm(`Bend the Knee: thank ${ctx.name(ctx.me)} for everything they've done for you, or pay the bank 300?`,
-        { chooser: t, yes: 'Thank the King', no: 'Refuse and pay 300', publicTitle: 'Deciding (Bend the Knee)', default: true }));
-      if (refuse) await ctx.lose(t, 300);
-      else ctx.announce(`${ctx.name(t)} must thank ${ctx.name(ctx.me)} for everything they've done for them!`);
+      const K = ctx.name(ctx.me);
+      const canPay = ctx.canAfford(t, 300);
+      if (!typed(ctx)) {
+        const refuse = canPay && !(await ctx.confirm(`Bend the Knee: thank ${K} for everything they've done for you, or pay the bank 300?`,
+          { chooser: t, yes: 'Thank the King', no: 'Refuse and pay 300', publicTitle: 'Deciding (Bend the Knee)', default: true }));
+        if (refuse) await ctx.lose(t, 300);
+        else ctx.announce(`${ctx.name(t)} must thank ${K} for everything they've done for them!`);
+        return;
+      }
+      const r = await ctx.speak({
+        player: t, title: `Bend the Knee: thank ${K} for everything they've done for you`,
+        instruction: canPay ? 'Thank them by name, or refuse and pay the bank 300.' : "You can't afford to refuse: thank them by name.",
+        check: (x) => isThanks(x) && mentions(x, K), failHint: `thank ${K} by name`,
+        suggestion: `Thank you, ${K}, for everything you have done for me.`,
+        refuseLabel: canPay ? 'Refuse and pay 300' : '',
+      });
+      // Not thanking counts as refusing; someone who can't afford 300 loses what they have.
+      if (!r.ok) await ctx.lose(t, 300);
     },
   },
   {
@@ -613,8 +672,16 @@ module.exports = [
       const t = await ctx.choosePlayer({ title: 'Loyal Dog: reward whom?', kind: null });
       if (!t) return;
       const amt = await ctx.chooseAmount({ title: `Loyal Dog: how much for ${ctx.name(t)}?`, min: 100, max: 300, step: 100 });
-      await ctx.gain(t, amt);
-      ctx.announce(`${ctx.name(t)} must say: "Thank you my king, I pledge my loyalty to you my king."`);
+      const line = 'Thank you my king, I pledge my loyalty to you my king.';
+      if (!typed(ctx)) { await ctx.gain(t, amt); ctx.announce(`${ctx.name(t)} must say: "${line}"`); return; }
+      // The gold depends on saying the line.
+      const r = await ctx.speak({
+        player: t, title: `Loyal Dog: say the line to receive ${amt} gold`, instruction: `Type: “${line}”`,
+        check: saysExactly(line), failHint: 'type the line exactly', suggestion: line,
+        refuseLabel: 'Refuse (no gold)',
+      });
+      if (r.ok) await ctx.gain(t, amt);
+      else ctx.announce(`${ctx.name(t)} wouldn't say it, so they get no gold.`);
     },
   },
   {
@@ -632,12 +699,29 @@ module.exports = [
     async play(ctx) {
       const t = await ctx.choosePlayer({ title: 'Royal Parrot: who is the parrot?', kind: null });
       if (!t) return;
-      const comply = await ctx.confirm(`Royal Parrot: pay 100 and repeat ${ctx.name(ctx.me)}'s sentence in a high-pitched voice, or refuse and pay 300?`,
-        { chooser: t, yes: 'Pay 100 and squawk', no: 'Refuse (pay 300)', publicTitle: 'Deciding (Royal Parrot)', default: true });
-      if (comply) {
-        await ctx.lose(t, 100);
-        ctx.announce(`🦜 ${ctx.name(t)} must repeat ${ctx.name(ctx.me)}'s sentence in a high-pitched voice!`);
-      } else await ctx.lose(t, 300);
+      if (!typed(ctx)) {
+        const comply = await ctx.confirm(`Royal Parrot: pay 100 and repeat ${ctx.name(ctx.me)}'s sentence in a high-pitched voice, or refuse and pay 300?`,
+          { chooser: t, yes: 'Pay 100 and squawk', no: 'Refuse (pay 300)', publicTitle: 'Deciding (Royal Parrot)', default: true });
+        if (comply) {
+          await ctx.lose(t, 100);
+          ctx.announce(`🦜 ${ctx.name(t)} must repeat ${ctx.name(ctx.me)}'s sentence in a high-pitched voice!`);
+        } else await ctx.lose(t, 300);
+        return;
+      }
+      const fallback = 'Long live the King, the wisest ruler of all!';
+      const given = await ctx.speak({
+        title: `Royal Parrot: give ${ctx.name(t)} a sentence to repeat`, instruction: 'At least two words.',
+        check: (x) => wordCount(x) >= 2 && x.length <= 120, failHint: 'two words or more, up to 120 characters', suggestion: fallback,
+      });
+      const sentence = given.ok ? given.text : fallback;
+      const r = await ctx.speak({
+        player: t, title: `🦜 Royal Parrot: repeat ${ctx.name(ctx.me)}'s sentence`,
+        instruction: `Pay 100 and repeat exactly: “${sentence}” (or refuse and pay 300).`,
+        check: saysExactly(sentence), failHint: 'repeat it exactly', suggestion: sentence,
+        refuseLabel: 'Refuse and pay 300', style: 'squeak',
+      });
+      if (r.ok) await ctx.lose(t, 100);
+      else await ctx.lose(t, 300);
     },
   },
   {

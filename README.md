@@ -76,6 +76,16 @@ Game state is kept in memory. Restarting the server ends any game in progress.
 - Debt Collector: the chosen player must pick another Noble, never the King.
 - People's Champion: you may nominate yourself; a winning challenger swaps gold with the King.
 
+**Spoken card parts** (lobby setting, default *typed and checked*)
+- Cards that make someone speak (Loyal Dog, Bend the Knee, Royal Parrot, Loyalty, Council
+  Meeting, Actors) ask that player to type the line. The server checks it (fixed lines must
+  match, ignoring capitals and punctuation; thanks and praise must name the King; a laugh must
+  be a laugh), and a passing line is posted in chat as their speech. Nobody has to vouch for it.
+- Not saying it in time counts as refusing: Loyal Dog gives no gold, Council Meeting draws
+  nothing, Bend the Knee and Royal Parrot cost 300 (the Royal Parrot's line shows up squeaky).
+  Actors and Loyalty have no penalty on the card, so refusals are named publicly.
+- *Honour system* keeps the old behaviour: the line is announced and players trust each other.
+
 **Winning:** whoever is King when the last card of the final round is played wins (there is
 no negotiation after the final round).
 
